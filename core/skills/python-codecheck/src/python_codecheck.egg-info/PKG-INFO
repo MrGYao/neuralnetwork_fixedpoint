@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: python-codecheck
+Version: 2.0.0
+Summary: Python代码质量检查工具（跨平台，支持模块/增量/全量模式）
+Requires-Python: >=3.11
+Requires-Dist: tomli-w>=0.4.0

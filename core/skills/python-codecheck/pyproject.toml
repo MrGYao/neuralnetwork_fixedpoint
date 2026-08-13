@@ -1,0 +1,63 @@
+[build-system]
+requires = [
+    "setuptools>=68.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-codecheck"
+version = "2.0.0"
+description = "Python代码质量检查工具（跨平台，支持模块/增量/全量模式）"
+requires-python = ">=3.11"
+dependencies = [
+    "tomli-w>=0.4.0",
+]
+
+[project.scripts]
+python-codecheck = "python_codecheck.main:main"
+
+[tool.setuptools.packages.find]
+where = [
+    "src",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    "__pycache__",
+    ".venv",
+    "node_modules",
+    ".git",
+    "*.egg-info",
+    ".tox",
+    ".eggs",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "ARG",
+    "SIM",
+]
+ignore = [
+    "E501",
+    "B008",
+    "W191",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "python-codecheck",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

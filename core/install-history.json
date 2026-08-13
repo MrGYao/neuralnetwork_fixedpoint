@@ -1,0 +1,63 @@
+{
+  "installs": [
+    {
+      "time": "2026-08-12T11:09:48.339Z",
+      "mode": "local",
+      "components": [
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-12T11:10:16.557Z",
+      "mode": "local",
+      "components": [
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-12T11:25:58.607Z",
+      "mode": "local",
+      "components": [
+        "agent",
+        "commands",
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-13T03:45:46.141Z",
+      "mode": "local",
+      "components": [
+        "agent",
+        "commands",
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-13T03:47:04.755Z",
+      "mode": "local",
+      "components": [
+        "agent",
+        "commands",
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-13T03:50:38.775Z",
+      "mode": "local",
+      "components": [
+        "agent",
+        "commands",
+        "skills"
+      ]
+    },
+    {
+      "time": "2026-08-13T03:55:29.655Z",
+      "mode": "local",
+      "components": [
+        "agent",
+        "commands",
+        "skills"
+      ]
+    }
+  ]
+}
