@@ -3,8 +3,7 @@
 ## 快速指引
 
 1. 执行 /at-task-new 创建新任务
-2. 执行 /at-task-run-half 半自动执行
-3. 执行 /at-task-run-all 全自动执行
+2. 执行 /at-task-run 执行任务
 
 ## 任务记录
 

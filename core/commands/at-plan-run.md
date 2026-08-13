@@ -109,6 +109,14 @@ agent: build
     git add auto-task/memory-index.md
     git commit -m "[task-{id}/phase-{current}] 更新记忆索引"
 
+13. 执行 /at-plan-review
+
+    - 检查产出物与计划一致性
+    - 检查验证标准是否满足
+    - 检查退出条件是否达成
+    - 不一致则补充或修复
+    - 更新阶段计划文件
+
 关键原则：
 
 - 严格按计划执行，禁止跳过步骤
