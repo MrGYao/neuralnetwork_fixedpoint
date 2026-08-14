@@ -1,124 +1,134 @@
 ---
-description: 执行当前阶段计划
+description: 执行当前阶段计划（委派给执行专家和评审专家）
 agent: build
+subtask: false
 ---
 
 模板文件位置：`.opencode/commands/auto-task/`
 
 执行当前阶段计划：
 
-执行流程：
+## 执行流程
 
-1. 直接提交代码，清空 git 暂存区：
+### 1. 前置准备（主代理执行）
 
-2. 执行 /at-mem-read
+a) 提交当前暂存代码：
 
-3. 确定当前阶段计划文件：
-   - 读取 memory-index.md 获取当前任务和当前计划
-   - 定位文件：auto-task/tasks/task-{id}/task-{id}-plan-phase-{current}.md
+```bash
+git add -A
+git commit -m "WIP: before phase execution" || true
+```
 
-4. 读取阶段计划文件，提取：
-   - 阶段目标
-   - 具体步骤（列表）
-   - 产出物（列表）
-   - 验证标准（列表）
-   - 退出条件（列表）
+b) 读取记忆索引：
 
-5. 严格按计划执行每个步骤：
+- 执行 `/at-mem-read`
+- 获取当前任务和当前阶段
 
-   初始化步骤计数器 i = 1
+c) 定位阶段计划文件：
 
-   对于每个步骤 step[i]：
+- auto-task/tasks/task-{id}/task-{id}-plan-phase-{current}.md
 
-   a) 输出提示：`执行步骤 {i}/{总数}: {step[i]}`
+### 2. 委派执行专家（Task 工具）
 
-   b) 执行步骤（根据步骤内容调用相应工具）
+```typescript
+Task({
+  subagent_type: 'at-executor',
+  prompt: `
+    执行阶段：task-{id} / phase-{current}
+    计划文件：auto-task/tasks/task-{id}/task-{id}-plan-phase-{current}.md
 
-   c) 如果执行失败：
-   - 记录失败次数（针对当前步骤）
-   - 如果失败次数 < 3：
-     - 输出失败原因
-     - 尝试换方案解决
-     - 重新执行步骤
-   - 如果失败次数 >= 3：
-     - 输出失败原因和已尝试的方案
-     - 提示"已尝试3次仍未解决，等待用户决策"
-     - 暂停执行，等待用户指示
-     - 用户指示可能是：
-       - 提供新的解决方案 → 继续执行
-       - 跳过当前步骤 → 标记为跳过，继续下一步
-       - 终止执行 → 退出命令
+    执行要求：
+    - 严格按计划步骤执行
+    - 失败最多重试 3 次
+    - 所有产出物必须生成
+    - 自动提交代码
 
-   d) 如果执行成功：
-   - 输出成功结果
-   - 继续下一步
+    执行完成后生成总结文件：
+    - auto-task/tasks/task-{id}/summary/task-{id}-plan-phase-{current}-summary.md
+  `,
+  description: '执行 Phase {current}',
+})
+```
 
-   禁止行为：
-   - 禁止跳过任何步骤（除非用户明确指示）
-   - 禁止修改步骤顺序
+### 3. 后置验证（主代理执行）
 
-6. 所有步骤完成后，验证产出物：
+检查执行结果：
 
-   对于每个产出物：
-   a) 检查文件是否存在
-   b) 检查内容是否非空
-   c) 输出验证结果
+- 读取阶段总结文件
+- 检查产出物是否生成
+- 检查验证标准是否满足
 
-7. 检查验证标准：
+### 4. 委派评审专家（Task 工具）
 
-   对于每个验证标准：
-   a) 检查是否满足
-   b) 输出结果：✅ 或 ❌
+```typescript
+Task({
+  subagent_type: 'at-reviewer',
+  prompt: `
+    评审阶段：task-{id} / phase-{current}
+    评审类型：阶段评审
+    计划文件：auto-task/tasks/task-{id}/task-{id}-plan-phase-{current}.md
+    总结文件：auto-task/tasks/task-{id}/summary/task-{id}-plan-phase-{current}-summary.md
+  `,
+  description: '评审 Phase {current} 执行结果',
+})
+```
 
-8. 检查退出条件：
+### 5. 更新记忆索引（主代理执行）
 
-   如果所有退出条件满足：
-   - 标记阶段为"可完成"
-     否则：
-   - 提示"退出条件未完全满足"
-   - 等待用户决策：继续完善 或 标记完成
+执行 `/at-mem-fresh`：
 
-9. 自动提交代码：
+- 更新当前状态
+- 更新工作历史
+- 确定下一步行动
 
-   如果阶段可完成：
-   a) 执行 git status 查看变更
-   b) 执行 git add 相关文件
-   c) 执行 git commit -m "[task-{id}/phase-{current}] {阶段目标}"
-   d) 输出提交结果
+### 6. 提交记忆索引
 
-   如果阶段失败（未完成）：
-   - 不提交代码
-   - 提示"阶段未完成，代码未提交"
+```bash
+git add auto-task/memory-index.md
+git commit -m "[task-{id}/phase-{current}] 更新记忆索引"
+```
 
-10. 生成阶段总结：
+### 7. 输出执行结果
 
-    创建文件：auto-task/tasks/task-{id}/summary/task-{id}-plan-phase-{current}-summary.md
+```
+========================================
+Phase {current} 执行完成
+========================================
+任务：task-{id}
+执行状态：{成功/部分成功/失败}
 
-    内容基于模板，填充：
-    - 执行时间：开始时间 → 结束时间
-    - 完成内容：执行的步骤列表
-    - 产出物：实际产出的文件列表
-    - 验证结果：每个标准的验证结果
-    - 问题与解决：遇到的问题及解决方案
-    - 下一阶段准备：注意事项
+产出物：
+- {文件路径} ✅
+- {文件路径} ✅
 
-11. 执行 /at-mem-fresh
+验证标准：
+- [✅] 标准 1
+- [✅] 标准 2
+- [❌] 标准 3（需改进）
 
-12. 再次提交 memory-index.md：
+下一步：
+- 如果还有下一阶段：准备执行 phase-{next}
+- 如果已是最后阶段：准备任务整体评审
+========================================
+```
 
-    git add auto-task/memory-index.md
-    git commit -m "[task-{id}/phase-{current}] 更新记忆索引"
+## 失败处理
 
-13. 执行 /at-plan-review
+如果执行专家报告失败：
 
-    - 检查产出物与计划一致性
-    - 检查验证标准是否满足
-    - 检查退出条件是否达成
-    - 不一致则补充或修复
-    - 更新阶段计划文件
+1. 读取失败详情
+2. 输出失败报告给用户
+3. 等待用户决策：
+   - "重试" → 重新委派执行专家
+   - "跳过" → 标记步骤跳过，继续
+   - "终止" → 退出命令
 
-关键原则：
+## 关键原则
 
+- **主代理作为编排者**：不执行具体步骤
+- **执行委派给 `at-executor`**：严格按计划执行
+- **评审委派给 `at-reviewer`**：验证产出一致性
+- **保持主上下文清晰**：避免膨胀
 - 严格按计划执行，禁止跳过步骤
 - 最多尝试3次解决失败，3次后等待用户决策
 - 阶段完成才提交代码

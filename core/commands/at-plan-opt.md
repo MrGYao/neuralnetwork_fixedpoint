@@ -1,6 +1,7 @@
 ---
-description: 执行计划优化
+description: 执行计划优化（委派给执行专家）
 agent: build
+subtask: false
 ---
 
 模板文件位置：`.opencode/commands/auto-task/`
@@ -23,7 +24,7 @@ agent: build
 
 ## 流程
 
-### Step 1: 参数解析
+### 1. 参数解析（主代理执行）
 
 解析：
 
@@ -31,7 +32,7 @@ agent: build
 - task-id: $2 或从 memory-index 读取
 - phase-number: $3 或当前阶段 +1
 
-### Step 2: 查找 gap 文件
+### 2. 查找 gap 文件（主代理执行）
 
 查找顺序：
 
@@ -45,24 +46,24 @@ agent: build
 - 提示：未找到 Gap 分析文件，请先执行：/at-think-gap {task-id} {phase-number}
 - 退出
 
-### Step 3: 读取 gap 文件
+### 3. 读取 gap 文件（主代理执行）
 
-执行：读取 gap 文件
-解析：YAML frontmatter + Markdown 内容
-提取：
+读取 gap 文件，解析：
 
 - gap_count
 - 变更点列表
 - 维度分析结果
 
-### Step 4: 根据模式执行
+### 4. 根据模式执行（主代理决策）
 
 #### mode = dry-run
 
 输出变更预览，**不实际写入**：
 
 ```
-=== 变更预览 ===
+========================================
+变更预览（dry-run 模式）
+========================================
 
 变更点 1: {标题}
 目标: {文件}
@@ -81,21 +82,18 @@ agent: build
 ---
 
 总计 {count} 个变更，未实际写入
+
+提示：使用 /at-plan-opt ask 或 /at-plan-opt auto 执行变更
+========================================
 ```
+
+退出，不执行后续步骤。
 
 #### mode = auto
 
-自动执行所有变更：
+直接委派 executor 执行所有变更：
 
-```
-执行变更：
-
-1. 应用变更点 1 -> ✅ 成功
-2. 应用变更点 2 -> ✅ 成功
-...
-
-执行完成，{count} 个变更已应用
-```
+跳转到步骤 5.
 
 #### mode = ask
 
@@ -117,127 +115,100 @@ agent: build
 └─────────────────────────────────────────────┘
 
 选择: [批准] [跳过] [查看详情] [取消全部]
-
-用户操作 -> 执行对应处理
-
-重复直到所有变更点处理完毕
 ```
 
-### Step 5: 执行变更
+用户操作：
 
-对每个批准的变更点：
+- 批准 → 标记为待执行
+- 跳过 → 标记为跳过
+- 查看详情 → 展示完整变更，重新询问
+- 取消全部 → 退出
+
+收集所有批准的变更点，跳转到步骤 5.
+
+### 5. 委派执行变更（Task 工具）
+
+调用 Task 工具，委派给 `at-executor` subagent：
 
 ```typescript
-function applyChange(point): Result {
-  // 读取目标文件
-  const targetPath = 'auto-task/tasks/' + point.task_id + '/' + point.目标.文件
-  let content = readFileSync(targetPath)
+Task({
+  subagent_type: 'at-executor',
+  prompt: `
+    执行计划优化变更：task-{id} / phase-{n}
 
-  // 应用变更
-  switch (point.类型) {
-    case 'add':
-      content = insertAtPosition(content, point.目标.位置, point.变更内容)
-      break
-    case 'modify':
-      content = applyDiff(content, point.变更内容)
-      break
-    case 'delete':
-      content = removeContent(content, point.变更内容)
-      break
-    case 'reorder':
-      content = reorderSections(content, point.变更内容)
-      break
-  }
+    模式：{mode}
 
-  // 写回文件
-  writeFileSync(targetPath, content)
+    待执行变更点：
+    {变更点列表（JSON 或标准格式）}
 
-  return { success: true, file: targetPath }
-}
+    执行要求：
+    - 对每个变更点：
+      * 读取目标文件
+      * 应用变更（add/modify/delete/reorder）
+      * 写回文件
+      * 记录执行结果
+    - 在目标文件末尾添加"计划刷新记录"章节：
+      * 时间：{当前时间}
+      * 命令：/at-plan-opt {mode}
+      * 变更数：{count}
+      * 变更点：{标题列表}
+    - 更新 memory-index：
+      * 追加操作记录
+
+    自动提交：
+    - git add auto-task/tasks/task-{id}/
+    - git commit -m "[task-{id}] 优化 phase-{n} 计划"
+
+    输出：执行结果报告
+  `,
+  description: '执行计划优化变更',
+})
 ```
 
-### Step 5.5: 添加刷新记录
+### 6. 输出执行摘要（主代理执行）
 
-在目标计划文件末尾追加刷新记录章节：
-
-如果文件末尾已有 `## 计划刷新记录` 章节：
-
-- 在该章节下追加新记录：
-
-```
-- **时间**: {当前时间}
-  - 命令: /at-plan-opt {mode}
-  - 变更数: {count}
-  - 变更点: {变更点标题列表}
-```
-
-如果文件末尾没有 `## 计划刷新记录` 章节：
-
-- 在文件末尾新增章节：
+读取 executor 输出，展示执行摘要：
 
 ```markdown
----
+========================================
+计划优化完成
+========================================
 
-## 计划刷新记录
+执行信息：
 
-- **时间**: {当前时间}
-  - 命令: /at-plan-opt {mode}
-  - 变更数: {count}
-  - 变更点: {变更点标题列表}
-```
+- 模式：{mode}
+- 任务：task-{id}
+- 阶段：phase-{n}
+- 执行时间：{时间}
 
-### Step 6: 更新 memory-index
+变更统计：
 
-追加操作记录：
+- 总计：{total} 个
+- 批准：{approved} 个
+- 跳过：{skipped} 个
+- 失败：{failed} 个
 
-```markdown
-### {时间}
+执行详情：
 
-- 执行: /at-plan-opt {mode}
-- 变更数: {count}
-- 影响文件: {files}
-```
-
-### Step 7: 输出执行摘要
-
-```markdown
-# 计划优化执行摘要
-
-## 执行信息
-
-- 模式: {mode}
-- 任务: task-{id}
-- 阶段: phase-{n}
-- 执行时间: {时间}
-
-## 变更统计
-
-- 总计: {total} 个
-- 批准: {approved} 个
-- 跳过: {skipped} 个
-- 失败: {failed} 个
-
-## 执行详情
-
-### 已执行 ({approved})
+已执行 ({approved})：
 
 - ✅ 变更点 1: {标题}
-  - 文件: {file}
-  - 类型: {type}
+  - 文件：{file}
+  - 类型：{type}
 
-### 已跳过 ({skipped})
+已跳过 ({skipped})：
 
 - ⏭ 变更点 3: {标题}
-  - 原因: 用户跳过
+  - 原因：用户跳过
 
-## 影响文件
+影响文件：
 
 - {file1}
 - {file2}
 
-## 下一步
-
-继续执行当前任务：/at-task-run-single
+下一步：
+继续执行当前任务：/at-task-run
+========================================
 ```
 
 ## 注意事项
@@ -246,3 +217,5 @@ function applyChange(point): Result {
 - **幂等性**: 同一变更多次执行不会重复
 - **建议 git commit**: 执行前建议提交当前状态
 - **无自动回滚**: 不提供回滚功能，需手动恢复
+- **委派清晰**: dry-run 由主代理预览，auto/ask 委派 executor 执行
+- **权限分离**: 主代理决策，executor 执行

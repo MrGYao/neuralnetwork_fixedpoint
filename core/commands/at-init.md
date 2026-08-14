@@ -19,7 +19,7 @@ agent: build
    - auto-task/templates/task-plan-phase.md
    - auto-task/templates/task-plan-phase-summary.md
 
-3. 如果文件已存在，询问用户是否覆盖
+3. 如果文件已存在则跳过创建步骤，直接验证
 
 4. 创建完成后，输出成功信息
 
